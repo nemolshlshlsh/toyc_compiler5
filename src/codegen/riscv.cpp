@@ -359,6 +359,10 @@ void RISCVCodeGenerator::visit(WhileStatement& node) {
     std::string loopLabel = newLabel("loop");
     std::string endLabel = newLabel("endloop");
     
+    // 压入标签栈，供 break 和 continue 使用
+    breakLabels.push(endLabel);
+    continueLabels.push(loopLabel);
+    
     // 循环开始标签
     emitLabel(loopLabel);
     
@@ -378,18 +382,32 @@ void RISCVCodeGenerator::visit(WhileStatement& node) {
     
     // 循环结束标签
     emitLabel(endLabel);
+    
+    // 弹出标签栈
+    breakLabels.pop();
+    continueLabels.pop();
 }
 
 void RISCVCodeGenerator::visit(BreakStatement& node) {
     (void)node; // 避免未使用参数警告
-    // 简单的 break 实现，需要更复杂的标签管理
-    emit("j break_label"); // 这里需要实际的 break 标签
+    // 简单的 break 实现，跳转到循环结束标签
+    if (!breakLabels.empty()) {
+        emit("j " + breakLabels.top());
+    } else {
+        // 如果没有 break 标签，生成一个错误
+        emit("# ERROR: break statement outside of loop");
+    }
 }
 
 void RISCVCodeGenerator::visit(ContinueStatement& node) {
     (void)node; // 避免未使用参数警告
-    // 简单的 continue 实现，需要更复杂的标签管理
-    emit("j continue_label"); // 这里需要实际的 continue 标签
+    // 简单的 continue 实现，跳转到循环开始标签
+    if (!continueLabels.empty()) {
+        emit("j " + continueLabels.top());
+    } else {
+        // 如果没有 continue 标签，生成一个错误
+        emit("# ERROR: continue statement outside of loop");
+    }
 }
 
 void RISCVCodeGenerator::visit(ReturnStatement& node) {
